@@ -25,7 +25,7 @@ Only record what the user has agreed to, not suggestions that are still open. Af
 
 ## Setup
 
-- Python: always run `.venv/bin/python`. It's a virtual environment (Python 3.13) with skia-python, numpy and scipy. Don't use the system `python3`, which is Apple's old 3.9. To rebuild it (e.g. on another computer): `python3.13 -m venv .venv && .venv/bin/pip install -r requirements.txt`.
+- Python: always run `.venv/bin/python`. It's a virtual environment (Python 3.13) with skia-python, numpy and scipy. Don't use the system `python3`, which is Apple's old 3.9. The uploaded `.venv/` relies on Homebrew's Python 3.13, so on another computer run `brew install python@3.13` and it works as is. Don't rebuild it there: that rewrites about 2,900 uploaded files. Only if it's broken beyond that: `python3.13 -m venv .venv && .venv/bin/pip install -r requirements.txt`.
 - Git: the code is on GitHub at https://github.com/buuraak/video (branch `main`). Commits in this project use the email bubaykara@outlook.com (set for this folder only). Everything is uploaded, including `.venv/` and the rendered outputs (`films/`, `sheets/`, `audio/`); only Python cache files and `.DS_Store` are left out. Push only when the user asks.
 - ffmpeg and ffprobe come from Homebrew, at `/opt/homebrew/bin`.
 - Voice: the macOS `say` command, e.g. `say -v Samantha -o line.aiff "text"`, then convert with ffmpeg. Only the basic voices are installed. The user can download Enhanced or Premium voices in System Settings → Accessibility → Spoken Content → System Voice → Manage Voices.
