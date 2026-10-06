@@ -1,0 +1,12 @@
+# This Mac's private Python setup (rebuild it from requirements.txt)
+.venv/
+__pycache__/
+*.pyc
+
+# Rendered outputs: these can always be made again from the scene files
+films/
+sheets/
+audio/
+
+# macOS clutter
+.DS_Store
