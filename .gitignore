@@ -1,12 +1,6 @@
-# This Mac's private Python setup (rebuild it from requirements.txt)
-.venv/
+# Python's automatic cache files (re-made on every run, so never worth uploading)
 __pycache__/
 *.pyc
-
-# Rendered outputs: these can always be made again from the scene files
-films/
-sheets/
-audio/
 
 # macOS clutter
 .DS_Store
