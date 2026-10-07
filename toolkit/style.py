@@ -13,6 +13,7 @@ INK = (232, 228, 218)        # pale chalk-white lines
 GREY = (110, 108, 104)       # quiet details
 RED = (210, 32, 40)          # the one accent colour: failure, the enemy
 RED_DARK = (95, 8, 14)       # the enemy's dark glow
+SCREEN = (178, 208, 255)     # cold blue-white light from screens (his phone)
 GREEN = (90, 200, 120)       # a positive colour: only allowed at the end of a film
 
 # Lines

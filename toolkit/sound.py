@@ -282,6 +282,68 @@ def ticking(seconds, key="clock"):
     return out
 
 
+ALARM_BEEPS = 4          # beeps in each burst
+ALARM_BEEP = 0.07        # seconds each beep lasts
+ALARM_GAP = 0.05         # seconds of silence between beeps in a burst
+ALARM_EVERY = 1.0        # a new burst starts every second
+
+
+def alarm_on(t):
+    """True while a burst of alarm beeps is sounding, t seconds after the alarm started.
+
+    Use it to blink a clock's numbers in time with alarm().
+    """
+    burst = ALARM_BEEPS * (ALARM_BEEP + ALARM_GAP) - ALARM_GAP
+    return t >= 0 and (t % ALARM_EVERY) < burst
+
+
+def alarm(seconds, pitch=2600):
+    """A digital alarm clock going off for `seconds`: four sharp beeps, a pause, every second.
+
+    It ends exactly at `seconds`, e.g. when someone presses the button.
+    """
+    t = times(seconds)
+    within_burst = t % ALARM_EVERY
+    n = np.floor(within_burst / (ALARM_BEEP + ALARM_GAP))
+    within_beep = within_burst - n * (ALARM_BEEP + ALARM_GAP)
+    gate = (n < ALARM_BEEPS) & (within_beep < ALARM_BEEP)
+    edge = np.clip(np.minimum(within_beep, ALARM_BEEP - within_beep) / 0.002, 0, 1)
+    # a hard, buzzy square-ish tone (only odd overtones), like a cheap clock's little speaker
+    tone = sum(np.sin(2 * np.pi * pitch * k * t) / k for k in (1, 3, 5))
+    return fade_edges(normalize(lowpass(tone * gate * edge, 9000), 0.8), end=0.004)
+
+
+# -- voices ----------------------------------------------------------------
+
+SPEECH_FOLDER = Path(__file__).resolve().parent.parent / "audio" / "speech"
+
+
+def speech(text, voice="Samantha", rate=None):
+    """A line spoken by one of the Mac's voices (the `say` command), as a mono sound.
+
+    Each line is made once and saved in audio/speech/, so it stays identical on
+    every run. `say -v '?'` lists the voices; rate is words per minute.
+    """
+    import subprocess
+    from .rng import seed
+    path = SPEECH_FOLDER / f"{voice.split(' ')[0].lower()}_{seed(text, voice, rate):016x}.wav"
+    if not path.exists():
+        SPEECH_FOLDER.mkdir(parents=True, exist_ok=True)
+        aiff = path.with_suffix(".aiff")
+        subprocess.run(["say", "-v", voice, "-o", str(aiff)] + (["-r", str(rate)] if rate else []) + [text],
+                       check=True)
+        subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-i", str(aiff), "-ac", "1", "-ar", str(SR),
+                        str(path)], check=True)
+        aiff.unlink()
+    rate_read, data = wavfile.read(path)
+    return data.astype(float) / 32768.0
+
+
+def muffled(x, hz=750):
+    """A sound heard muffled, as through a blanket or from a phone held away: no clear words."""
+    return lowpass(highpass(x, 110), hz, order=4)
+
+
 # -- mixing ----------------------------------------------------------------
 
 def _room(seconds=2.2, key="room"):

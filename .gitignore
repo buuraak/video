@@ -4,3 +4,9 @@ __pycache__/
 
 # macOS clutter
 .DS_Store
+
+# Private keys (the ElevenLabs API key lives here; never upload it)
+.env
+
+# Rendered videos: too big for GitHub (over 100 MB each) and always re-made with render.py
+films/

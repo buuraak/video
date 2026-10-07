@@ -16,7 +16,7 @@ Everything is drawn with slightly wobbly, hand-drawn lines that are re-drawn eve
 
 One accent colour: **red**. Red means failure.
 
-Background near-black, lines pale chalk-white, quiet details grey, the enemy red. Exact values live in `toolkit/style.py`.
+Background near-black, lines pale chalk-white, quiet details grey, the enemy red. Screens (his phone) give off a cold blue-white light. Exact values live in `toolkit/style.py`.
 
 ## The character
 
@@ -24,6 +24,10 @@ Background near-black, lines pale chalk-white, quiet details grey, the enemy red
 - Defining detail: at the start he is always tired and depressed. He has bags under his eyes and looks sad.
 - Size on screen: medium to big. The viewer notices he's there, but he isn't huge.
 - He faces the enemy, turned side-on, not the viewer. His tired head droops forward, toward the enemy.
+- No red on his face. Sleeplessness shows through bags, heavy lids and worried brows only. Rejected (film 1): red rims round the eyes, red bags, red veins, a red glow under the eyes.
+- In close-ups he is still a stick figure: an arm is just a thick line, with no hand drawn.
+- Lying on his back seen from above, he rests his hands on his belly. (Arms hanging from one point on his spine looked like a tent.)
+- Seen from straight above, he is drawn truly from above: standing, we see the top of his head with arms and feet poking out as he walks; sitting up, his face turns away out of view.
 
 ## The enemy
 
@@ -32,6 +36,7 @@ Background near-black, lines pale chalk-white, quiet details grey, the enemy red
 - Looks evil and malicious, with an evil grin.
 - His outlines glitch occasionally.
 - He has a red, dark glow around him.
+- He doesn't have to appear in every film. Film 1 (Tomorrow) has no enemy figure: the red clock is the enemy.
 
 ## Font
 
@@ -47,7 +52,7 @@ Light film grain, a soft vignette (darker corners), and black bars at the top an
 
 ## Camera movement
 
-Shaky and handheld, as if someone is recording.
+Shaky and handheld, as if someone is recording. A shot that "stays in the same position" still keeps this gentle wobble; it just doesn't move or zoom.
 
 ## The rule we never break
 

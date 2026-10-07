@@ -266,6 +266,24 @@ def mix_saves_a_clean_stereo_wav():
 
 
 @check
+def alarm_blinks_exactly_with_its_beeps():
+    from toolkit import sound as sk
+    s = sk.alarm(4.0)
+    for i in range(0, 4000, 5):                      # every 5 ms
+        t = i / 1000
+        window = np.abs(s[int(t * sk.SR): int((t + 0.004) * sk.SR)])
+        if sk.alarm_on(t - 0.003) == sk.alarm_on(t + 0.007):     # not right at a burst's edge
+            if sk.alarm_on(t):
+                continue                              # inside a burst: beeps and short gaps
+            assert window.max() < 0.02, f"the alarm sounds at {t:.3f}s while the clock shows it's quiet"
+    for burst in range(4):
+        for beep in range(sk.ALARM_BEEPS):
+            t = burst * sk.ALARM_EVERY + beep * (sk.ALARM_BEEP + sk.ALARM_GAP) + sk.ALARM_BEEP / 2
+            assert sk.alarm_on(t), f"the clock should blink on at {t:.3f}s"
+            assert np.abs(s[int(t * sk.SR): int((t + 0.01) * sk.SR)]).max() > 0.3, f"no beep at {t:.3f}s"
+
+
+@check
 def note_names_give_the_right_pitch():
     from toolkit.sound import note_freq
     assert abs(note_freq("A4") - 440) < 1e-9 and abs(note_freq("A3") - 220) < 1e-9

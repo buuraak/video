@@ -7,6 +7,9 @@ A scene is a Python file (in scenes/) that defines:
     def overlay(canvas, t, frame): ...  # optional: captions, drawn after the film finish
     def soundtrack(): return Mix(...)  # optional: the scene's sound, built from the sound kit
     AUDIO = "audio/my_scene.wav"      # optional: a ready-made sound file instead (e.g. a voiceover)
+    PEAK_DB = -1.0                    # optional: how loud the soundtrack's loudest moment is. Lower it
+                                      # when a scene's loudest sound is quieter than other scenes' (so a
+                                      # sound running through several scenes stays the same loudness)
     FINISH = True                     # optional: set False to skip grain/vignette/bars
 
 Every frame is made the same way: blank dark frame -> draw -> finish -> overlay.
@@ -38,7 +41,8 @@ def build_audio(scene, folder="audio"):
     """Make the scene's sound file, if it has one. Returns its path, or None."""
     root = Path(scene.PATH).parent.parent
     if hasattr(scene, "soundtrack"):
-        return scene.soundtrack().save(root / folder / f"{Path(scene.PATH).stem}.wav")
+        return scene.soundtrack().save(root / folder / f"{Path(scene.PATH).stem}.wav",
+                                       peak_db=getattr(scene, "PEAK_DB", -1.0))
     audio = getattr(scene, "AUDIO", None)
     if audio:
         path = Path(audio) if Path(audio).is_absolute() else root / audio

@@ -253,6 +253,7 @@ def sound_tour():
         ("thud", sk.thud(), dict(reverb=0.25)),
         ("heartbeat", sk.heartbeat(4, 62), dict()),
         ("clock ticking", sk.ticking(4), dict(reverb=0.2)),
+        ("alarm clock", sk.alarm(3.0), dict(gain_db=-4, reverb=0.1)),
     ]
 
 
@@ -275,10 +276,10 @@ def preview_sound():
     tour = sk.Mix(sum(s.shape[-1] / sk.SR + 0.8 for _, s, _ in items) + 1)
     at = 0.5
     for i, (name, samples, settings) in enumerate(items):
-        x, y = 40 + (i % 3) * 627, 40 + (i // 3) * 340
+        x, y = 40 + (i % 4) * 470, 40 + (i // 4) * 340
         label(c, name, x, y + 30, 28, INK)
         label(c, f"{samples.shape[-1] / sk.SR:.1f} s", x, y + 300, 22)
-        waveform(c, samples, x, y + 60, 580, 210, RED if name in ("thud", "heartbeat") else INK)
+        waveform(c, samples, x, y + 60, 430, 210, RED if name in ("thud", "heartbeat", "alarm clock") else INK)
         tour.add(samples, at=at, **settings)
         at += samples.shape[-1] / sk.SR + 0.8
     tour.save(Path(__file__).parent / "audio" / "sound_kit_tour.wav")
