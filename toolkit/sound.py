@@ -339,6 +339,83 @@ def speech(text, voice="Samantha", rate=None):
     return data.astype(float) / 32768.0
 
 
+ENV_FILE = Path(__file__).resolve().parent.parent / ".env"
+ELEVENLABS = "https://api.elevenlabs.io/v1"
+
+
+def _elevenlabs(path, body=None):
+    """Call the ElevenLabs web API (GET, or POST when there's a body), with the key from .env."""
+    import json
+    import os
+    import urllib.request
+    key = os.environ.get("ELEVENLABS_API_KEY")
+    if not key and ENV_FILE.exists():
+        for line in ENV_FILE.read_text().splitlines():
+            if line.startswith("ELEVENLABS_API_KEY="):
+                key = line.split("=", 1)[1].strip()
+    if not key:
+        raise RuntimeError("No ElevenLabs key: put the line ELEVENLABS_API_KEY=... in .env")
+    request = urllib.request.Request(ELEVENLABS + path, data=None if body is None else json.dumps(body).encode(),
+                                     headers={"xi-api-key": key, "Content-Type": "application/json"})
+    with urllib.request.urlopen(request, timeout=120) as response:
+        return response.read()
+
+
+def eleven_speech(text, voice, model="eleven_v3", seed=1):
+    """A line spoken by a realistic ElevenLabs voice, as a mono sound.
+
+    voice: the first word of a voice's name in the ElevenLabs account ("Liam", "Laura").
+    With the eleven_v3 model, tags in the text steer the delivery: "[excited] Okay!", "[laughs]".
+    Each line is made once (that needs the key in .env and the internet) and saved in
+    audio/speech/, so it stays identical on every run and is only paid for once.
+    """
+    import json
+    from .rng import seed as stable
+    path = SPEECH_FOLDER / f"{voice.lower()}_{stable(text, voice, model, seed):016x}.wav"
+    if not path.exists():
+        voices = json.loads(_elevenlabs("/voices"))["voices"]
+        found = [v for v in voices if v["name"].split(" ")[0].lower() == voice.lower()]
+        if not found:
+            raise ValueError(f"No ElevenLabs voice called {voice!r}. There are: "
+                             + ", ".join(v["name"].split(" ")[0] for v in voices))
+        mp3 = _elevenlabs(f"/text-to-speech/{found[0]['voice_id']}?output_format=mp3_44100_128",
+                          {"text": text, "model_id": model, "seed": seed})
+        _save_mp3(mp3, path)
+    rate_read, data = wavfile.read(path)
+    return data.astype(float) / 32768.0
+
+
+EFFECTS_FOLDER = Path(__file__).resolve().parent.parent / "audio" / "effects"
+
+
+def eleven_sound(prompt, seconds, name, influence=0.5):
+    """A real-world sound effect made by ElevenLabs from a description, as a mono sound.
+
+    prompt: what it sounds like ("marker squeaking on a whiteboard"); seconds: 0.5 to 30;
+    name: a short word for its file name; influence: 0..1, how closely it follows the prompt.
+    Made once and saved in audio/effects/, like eleven_speech().
+    """
+    from .rng import seed as stable
+    path = EFFECTS_FOLDER / f"{name}_{stable(prompt, seconds, influence):016x}.wav"
+    if not path.exists():
+        mp3 = _elevenlabs("/sound-generation?output_format=mp3_44100_128",
+                          {"text": prompt, "duration_seconds": seconds, "prompt_influence": influence})
+        _save_mp3(mp3, path)
+    rate_read, data = wavfile.read(path)
+    return data.astype(float) / 32768.0
+
+
+def _save_mp3(mp3, path):
+    """Save MP3 bytes from ElevenLabs as a mono WAV at our sample rate."""
+    import subprocess
+    path.parent.mkdir(parents=True, exist_ok=True)
+    download = path.with_suffix(".mp3")
+    download.write_bytes(mp3)
+    subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-i", str(download), "-ac", "1", "-ar", str(SR),
+                    str(path)], check=True)
+    download.unlink()
+
+
 def muffled(x, hz=750):
     """A sound heard muffled, as through a blanket or from a phone held away: no clear words."""
     return lowpass(highpass(x, 110), hz, order=4)

@@ -16,6 +16,7 @@ import skia
 
 from scenes.bedroom import (HERO_X, HIP_Y, ROOM, belly_hands, box, clock_numbers, draw_bed, draw_blanket,
                             draw_nightstand, hero, rounded_rect)
+from scenes.discipline import Discipline
 from toolkit import INK, Camera, Face, Ink, Pose, Track, draw_face, draw_head, lerp, progress
 from toolkit import sound as sk
 from toolkit.character import reach
@@ -161,8 +162,12 @@ def draw(canvas, t, frame):
         shot_face(canvas, t, frame)
 
 
+bar = Discipline()     # empty
+
+
 def overlay(canvas, t, frame):
-    """Fade in from black at the very start."""
+    """The discipline bar, and the fade in from black at the very start (the bar fades in with the picture)."""
+    bar.draw(canvas, t, frame)
     dark = 1 - progress(t, 0, FADE_IN, "smooth")
     if dark > 0:
         canvas.drawPaint(skia.Paint(Color=skia.Color(0, 0, 0, int(255 * dark))))

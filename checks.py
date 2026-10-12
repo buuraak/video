@@ -266,6 +266,26 @@ def mix_saves_a_clean_stereo_wav():
 
 
 @check
+def saved_elevenlabs_sounds_are_reused_offline():
+    """Voices and effects made once come back from audio/, identical, without asking (or paying) ElevenLabs."""
+    from scenes import the_board
+    from scenes.scroll import TALK
+    from toolkit import sound as sk
+    real = sk._elevenlabs
+    def offline(*args, **kwargs):
+        raise AssertionError("asked ElevenLabs again for a sound that should already be saved")
+    sk._elevenlabs = offline
+    try:
+        for voice, line in TALK:
+            first, again = sk.eleven_speech(line, voice), sk.eleven_speech(line, voice)
+            assert len(first) > sk.SR and np.array_equal(first, again), f"{voice}'s line changed"
+        first, again = the_board.soundtrack().render(), the_board.soundtrack().render()   # the marker sounds
+        assert np.array_equal(first, again), "the board scene's sound changed between two runs"
+    finally:
+        sk._elevenlabs = real
+
+
+@check
 def alarm_blinks_exactly_with_its_beeps():
     from toolkit import sound as sk
     s = sk.alarm(4.0)

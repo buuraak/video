@@ -121,6 +121,82 @@ PHONE_TURN = -6                        # degrees
 PORT = turned([(PHONE[0] - 60, PHONE[1] + 1)], PHONE, PHONE_TURN)[0]   # where the charger plugs in
 
 
+# His empty bottles (the user's choice, sheets/bottle_options.png option 2): one tipped over on the nightstand
+# by the clock, one on the floor by the bed. As (middle, angle in degrees, length, thickness).
+BOTTLES = [((759, 268), 95, 88, 15), ((690, 485), -12, 92, 15)]
+
+
+def draw_bottle(ink, middle, angle, key, length=88, r=15):
+    """An empty bottle lying on its side, seen from above: body with a label, round shoulder, long neck."""
+    x, y = middle
+    body_end = x + length * 0.12
+    body = rounded_rect(x - length / 2, y - r, body_end, y + r, r * 0.45)
+    shoulder = [(body_end - 2, y - r * 0.92), (body_end + r * 0.9, y - r * 0.42), (body_end + r * 0.9, y + r * 0.42),
+                (body_end - 2, y + r * 0.92)]
+    neck = rounded_rect(body_end + r * 0.85, y - r * 0.38, x + length / 2, y + r * 0.38, 3)
+    box(ink, turned(body, middle, angle), key, width=3.0)
+    box(ink, turned(shoulder, middle, angle), key + ".shoulder", width=2.6)
+    box(ink, turned(neck, middle, angle), key + ".neck", width=2.6)
+    for i, lx in enumerate((x - length * 0.3, x - length * 0.05)):     # the label
+        ink.line(*turned([(lx, y - r + 2), (lx, y + r - 2)], middle, angle), f"{key}.label{i}", width=2.0)
+
+
+# The mess on the floor, which grows with each loop of the grind (film 1, rows 13-17): his clothes first.
+# Each piece as (middle, angle in degrees). Seen from above, crumpled, in the room's dim lines.
+TSHIRT = ((1335, 812), 24)
+JEANS = ((1372, 452), -14)
+CUPS = [((622, 392), 30), ((706, 640), 150), ((1292, 640), -60)]    # (middle, which way the handle points)
+
+
+def _crumpled(points, key, amount=6.0):
+    """Points pushed about a little (the same every run), so a piece of clothing looks crumpled, not ironed."""
+    from toolkit.rng import rng
+    g = rng("mess", key)
+    return [(x + g.uniform(-amount, amount), y + g.uniform(-amount, amount)) for x, y in points]
+
+
+def draw_tshirt(ink, middle, angle, key="tshirt"):
+    """A T-shirt dropped on the floor: body, sleeves, the neckline, and a couple of folds."""
+    x, y = middle
+    shape = [(-24, -70), (-58, -60), (-98, -30), (-80, 0), (-54, -16), (-50, 72), (54, 70), (50, -16), (80, 2),
+             (96, -34), (58, -62), (24, -70), (12, -56), (-10, -55)]
+    pts = _crumpled([(x + dx, y + dy) for dx, dy in shape], key)
+    box(ink, turned(pts, middle, angle), key, width=3.0)
+    for i, ((ax, ay), (bx, by)) in enumerate((((-36, 6), (8, 30)), ((14, -30), (36, 40)))):   # folds
+        ink.line(*turned([(x + ax, y + ay), (x + bx, y + by)], middle, angle), f"{key}.fold{i}", width=2.0)
+
+
+def draw_jeans(ink, middle, angle, key="jeans"):
+    """Jeans kicked off on the floor: the waistband, one leg straight, the other bent over to the side."""
+    x, y = middle
+    shape = [(-58, -96), (58, -96), (62, -78), (66, -14), (122, 34), (146, 84), (110, 104), (86, 58), (30, 16),
+             (8, 4), (-6, 108), (-62, 108), (-62, -78)]
+    pts = _crumpled([(x + dx, y + dy) for dx, dy in shape], key, 4.0)
+    box(ink, turned(pts, middle, angle), key, width=3.0)
+    for i, ((ax, ay), (bx, by)) in enumerate((((-60, -78), (62, -78)), ((0, -78), (2, -30)),     # waistband, fly
+                                              ((-48, -70), (-30, -50)), ((48, -70), (30, -50)))):  # pockets
+        ink.line(*turned([(x + ax, y + ay), (x + bx, y + by)], middle, angle), f"{key}.line{i}", width=2.0)
+
+
+def draw_cup(ink, middle, angle, key="cup", r=21):
+    """A used mug seen from above: its rim, the dried coffee ring inside, and the handle."""
+    x, y = middle
+    handle = turned(rounded_rect(x + r - 4, y - 7, x + r + 15, y + 7, 6), middle, angle)
+    box(ink, handle, key + ".handle", width=2.6)
+    ink.circle(middle, r, key, fill=BG, width=3.0)
+    ink.circle(middle, r * 0.68, key + ".ring", fill=(40, 38, 36), width=1.6)
+
+
+def draw_mess(ink, items):
+    """The mess on the floor: any of "clothes" and "cups" (more to come: a pizza box)."""
+    if "clothes" in items:
+        draw_jeans(ink, *JEANS)
+        draw_tshirt(ink, *TSHIRT)
+    if "cups" in items:
+        for i, (middle, angle) in enumerate(CUPS):
+            draw_cup(ink, middle, angle, f"cup{i}")
+
+
 def belly_hands(shoulder, breath=0.0):
     """Where his hands rest, together on his belly on top of the blanket (left, right)."""
     apart = 16 + 2 * breath
@@ -138,9 +214,11 @@ def draw_phone_on_table(ink):
 
 
 def draw_nightstand(ink, canvas, frame, time="5:59", phone=True):
-    """The nightstand: the alarm clock showing `time`, and the phone on its charger.
+    """The nightstand: the alarm clock showing `time`, the phone on its charger, and his empty bottles
+    (one on the nightstand, one on the floor beside it).
 
     phone=False: the phone has been taken, and the unplugged charger cable lies loose.
+    phone="plugged": it's on the charger, but the scene draws the phone itself (lit up, turned over).
     """
     box(ink, rounded_rect(*NIGHTSTAND, 8), "nightstand")
     # the alarm clock, its top with the button, and its front with the red numbers
@@ -149,15 +227,18 @@ def draw_nightstand(ink, canvas, frame, time="5:59", phone=True):
     box(ink, rounded_rect(*CLOCK_FRONT, 8), "clock.front", width=3.2)
     box(ink, rounded_rect(608, 268, 718, 302, 5), "clock.window", width=2.0)
     clock_numbers(canvas, frame, time, (663, 285), 24, "clock.small")
-    if phone:
+    plugged = isinstance(phone, str) and phone == "plugged"
+    if phone and not plugged:
         draw_phone_on_table(ink)
-    else:   # the plug at the loose end of the cable
+    elif not phone:   # the plug at the loose end of the cable
         ink.line((PORT[0] + 12, PORT[1] - 1), (PORT[0] - 2, PORT[1] + 1), "cable.plug", width=6.0, taper=0.0)
     # the charging cable: off the nightstand, across the floor, up to the socket on the wall
     cable = smooth([PORT, (PORT[0] - 22, PORT[1] + 6), (NIGHTSTAND[0] - 4, 404), (548, 396),
                     (528, 350), (520, 280), (519, 216)])
     ink.stroke(cable, "cable", width=2.6, taper=0.0)
     box(ink, rounded_rect(507, WALL, 531, 216, 3), "plug", width=2.4)
+    for i, (middle, angle, length, r) in enumerate(BOTTLES):      # his empty bottles
+        draw_bottle(ink, middle, angle, f"bottle{i}", length, r)
 
 
 def draw_bed(ink):
