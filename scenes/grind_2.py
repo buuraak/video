@@ -42,16 +42,22 @@ def days(crossed=0.0):
 clock_camera = Camera(zoom=Track((0, 1.0), (ABOVE, 1.02, "linear")), name="grind2.clock")
 
 
+def draw_clock(canvas, frame, time):
+    """The alarm clock from the front, as in scene 1, silent, showing `time` (the grind's later and later
+    mornings start on it)."""
+    ink = Ink(canvas, frame, color=ROOM, width=8.0, prefix="clock")
+    ink.floor(TABLE, key="table", width=6.0)
+    ink.floor(TABLE + 22, key="table.front", width=5.0)
+    box(ink, rounded_rect(BUTTON[0], BUTTON[1], BUTTON[2], BUTTON[3] + 6, 12), "button", width=7.0)
+    box(ink, rounded_rect(*CLOCK, 84), "body", width=9.0)
+    box(ink, rounded_rect(*WINDOW, 44), "window", width=6.0)
+    clock_numbers(canvas, frame, time, ((WINDOW[0] + WINDOW[2]) / 2, (WINDOW[1] + WINDOW[3]) / 2 + 2), 320,
+                  "clock.big")
+
+
 def shot_clock(canvas, t, frame):
     with clock_camera.view(canvas, t):
-        ink = Ink(canvas, frame, color=ROOM, width=8.0, prefix="clock")
-        ink.floor(TABLE, key="table", width=6.0)
-        ink.floor(TABLE + 22, key="table.front", width=5.0)
-        box(ink, rounded_rect(BUTTON[0], BUTTON[1], BUTTON[2], BUTTON[3] + 6, 12), "button", width=7.0)
-        box(ink, rounded_rect(*CLOCK, 84), "body", width=9.0)
-        box(ink, rounded_rect(*WINDOW, 44), "window", width=6.0)
-        clock_numbers(canvas, frame, TIME, ((WINDOW[0] + WINDOW[2]) / 2, (WINDOW[1] + WINDOW[3]) / 2 + 2), 320,
-                      "clock.big")
+        draw_clock(canvas, frame, TIME)
 
 
 # -- shot 2: from above, scrolling; a message he ignores ---------------------------------------------

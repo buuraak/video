@@ -68,10 +68,18 @@ def _write(canvas, frame, rect, text, u, v, size, shown=1.0, key=""):
     canvas.restore()
 
 
+def careless(n):
+    """How carelessly the n-th day is crossed out, 0..1. MONDAY to THURSDAY get a neat line; from FRIDAY on
+    (film 1, row 15) he cares less each day, so each slash is more crooked and runs further past the word."""
+    return 1 - 0.5 ** max(0, n - 3)
+
+
 def cross_line(rect, n, text):
-    """The red line through the n-th day: from just before it to just after, rising slightly."""
+    """The red line through the n-th day: from just before it to just after, rising slightly (a careless
+    slash rises more steeply and runs on past the word)."""
     x, y, w, px = day_box(rect, n, text)
-    return (x - 0.15 * px, y - 0.3 * px), (x + w + 0.15 * px, y - 0.4 * px)
+    s = careless(n)
+    return (x - (0.15 + 0.2 * s) * px, y - (0.3 - 0.4 * s) * px), (x + w + (0.15 + s) * px, y - (0.4 + 0.9 * s) * px)
 
 
 def _cross(canvas, frame, rect, n, text, crossed, key):
@@ -81,7 +89,8 @@ def _cross(canvas, frame, rect, n, text, crossed, key):
     px = day_box(rect, n, text)[3]
     canvas.save()
     if crossed < 1:
-        canvas.clipRect(skia.Rect(a[0] - px, a[1] - px, a[0] + (b[0] - a[0]) * crossed, a[1] + px))
+        top, bottom = min(a[1], b[1]) - px, max(a[1], b[1]) + px
+        canvas.clipRect(skia.Rect(a[0] - px, top, a[0] + (b[0] - a[0]) * crossed, bottom))
     Ink(canvas, frame, color=RED, width=0.15 * px, prefix=f"board.{key}").line(a, b, f"cross.{n}", taper=0.5)
     canvas.restore()
 

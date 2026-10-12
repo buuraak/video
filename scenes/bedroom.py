@@ -146,6 +146,8 @@ def draw_bottle(ink, middle, angle, key, length=88, r=15):
 TSHIRT = ((1335, 812), 24)
 JEANS = ((1372, 452), -14)
 CUPS = [((622, 392), 30), ((706, 640), 150), ((1292, 640), -60)]    # (middle, which way the handle points)
+PIZZA = ((470, 760), -10)        # the open box's bottom half; its lid lies flat behind it, toward the wall
+STAIN = (34, 32, 29)             # grease soaked into cardboard
 
 
 def _crumpled(points, key, amount=6.0):
@@ -187,14 +189,58 @@ def draw_cup(ink, middle, angle, key="cup", r=21):
     ink.circle(middle, r * 0.68, key + ".ring", fill=(40, 38, 36), width=1.6)
 
 
+def draw_slice(ink, middle, angle, size, key, width=2.2):
+    """A slice of pizza, `size` long: a wide triangle, its crust along the wide end, three pepperoni."""
+    x, y = middle
+
+    def arc(r):
+        return [(x + r * math.sin(math.radians(a)), y - size * 0.5 + r * math.cos(math.radians(a)))
+                for a in np.linspace(-30, 30, 7)]
+
+    ink.stroke(turned([(x, y - size * 0.5)] + arc(size), middle, angle), key, closed=True, width=width)
+    ink.stroke(turned(arc(size * 0.82)[1:-1], middle, angle), key + ".crust", width=width * 0.8)
+    for i, (dx, dy) in enumerate(((-0.11, 0.12), (0.12, 0.2), (0.0, -0.06))):
+        ink.circle(turned([(x + dx * size, y + dy * size)], middle, angle)[0], size * 0.075, f"{key}.pep{i}",
+                   width=width * 0.8)
+
+
+def _grease(ink, middle, r, angle, key):
+    """A grease spot soaked into the cardboard: a soft round patch."""
+    pts = [(middle[0] + r * math.cos(a) * (1 + 0.08 * math.sin(3 * a)), middle[1] + r * 0.8 * math.sin(a))
+           for a in np.linspace(0, 2 * math.pi, 16, endpoint=False)]
+    ink.fill(turned(pts, middle, angle), key, color=STAIN, wobble=0)
+
+
+def draw_pizza_box(ink, middle, angle, key="pizza", size=136):
+    """An open pizza box seen from above (the user's pick, sheets/pizza_options.png option 2): the lid lies
+    flat behind it, toward the wall; inside, grease spots, two crusts and one slice left."""
+    x, y = middle
+    s = size / 2
+    for part, (y0, y1) in (("lid", (y - 3 * s, y - s)), ("base", (y - s, y + s))):
+        box(ink, turned(rounded_rect(x - s, y0, x + s, y1, 5), middle, angle), f"{key}.{part}", width=3.0)
+        ink.stroke(turned(rounded_rect(x - s + 9, y0 + 9, x + s - 9, y1 - 9, 3), middle, angle), f"{key}.{part}.in",
+                   closed=True, width=1.6)
+    _grease(ink, turned([(x - 18, y - size + 10)], middle, angle)[0], 15, angle, key + ".lid.stain")
+    _grease(ink, turned([(x - 20, y + 16)], middle, angle)[0], 22, angle, key + ".stain")
+    for i, (c, r, a0, a1) in enumerate((((x - 10, y - 2), 44, 200, 265), ((x + 6, y + 4), 40, 25, 95))):
+        outer = [(c[0] + r * math.cos(math.radians(a)), c[1] + r * math.sin(math.radians(a)))
+                 for a in np.linspace(a0, a1, 9)]
+        inner = [(c[0] + (r - 9) * math.cos(math.radians(a)), c[1] + (r - 9) * math.sin(math.radians(a)))
+                 for a in np.linspace(a1, a0, 9)]
+        box(ink, turned(outer + inner, middle, angle), f"{key}.crust{i}", width=2.2)     # a crust, left
+    draw_slice(ink, turned([(x + 24, y - 6)], middle, angle)[0], angle + 150, 62, key + ".slice")
+
+
 def draw_mess(ink, items):
-    """The mess on the floor: any of "clothes" and "cups" (more to come: a pizza box)."""
+    """The mess on the floor: any of "clothes", "cups" and "pizza"."""
     if "clothes" in items:
         draw_jeans(ink, *JEANS)
         draw_tshirt(ink, *TSHIRT)
     if "cups" in items:
         for i, (middle, angle) in enumerate(CUPS):
             draw_cup(ink, middle, angle, f"cup{i}")
+    if "pizza" in items:
+        draw_pizza_box(ink, *PIZZA)
 
 
 def belly_hands(shoulder, breath=0.0):

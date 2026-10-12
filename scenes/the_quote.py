@@ -178,18 +178,22 @@ def his_face(t):
     return Face(eyes=eyes, brows=lerp(0.9, -0.6, u), mouth="frown", mouth_size=0.6 * (1 - u), bags=True)
 
 
+def draw_close_face(canvas, frame, face, level, tilt=-1.5):
+    """His face from above, close, on the pillow, lit by the phone (`level`: how bright its light is)."""
+    room = Ink(canvas, frame, color=ROOM, width=12.0, prefix="closeup")
+    box(room, rounded_rect(120, 110, 1800, 880, 140), "pillow")
+    pen = Ink(canvas, frame, color=INK, width=22.0, prefix="hero.face")
+    pen.line((HEAD[0], HEAD[1] + HEAD_R - 6), (HEAD[0] + 4, 1100), "neck", taper=0.0)
+    draw_head(pen, HEAD, HEAD_R, face, tilt=tilt)
+    # the phone's light comes from below: it's held over his chest, out of the picture
+    source = (HEAD[0], 1250)
+    glow(canvas, (HEAD[0], 1150), 900, TINT, 0.3 * level)
+    light_on_face(canvas, HEAD, HEAD_R, source, TINT, 0.45 * level)
+
+
 def shot_face(canvas, t, frame):
     with face_camera.view(canvas, t):
-        room = Ink(canvas, frame, color=ROOM, width=12.0, prefix="closeup")
-        box(room, rounded_rect(120, 110, 1800, 880, 140), "pillow")
-        pen = Ink(canvas, frame, color=INK, width=22.0, prefix="hero.face")
-        pen.line((HEAD[0], HEAD[1] + HEAD_R - 6), (HEAD[0] + 4, 1100), "neck", taper=0.0)
-        draw_head(pen, HEAD, HEAD_R, his_face(t), tilt=-1.5)
-        # the phone's light comes from below: it's held over his chest, out of the picture
-        level = light_level(t)
-        source = (HEAD[0], 1250)
-        glow(canvas, (HEAD[0], 1150), 900, TINT, 0.3 * level)
-        light_on_face(canvas, HEAD, HEAD_R, source, TINT, 0.45 * level)
+        draw_close_face(canvas, frame, his_face(t), light_level(t))
 
 
 # -- the scene ---------------------------------------------------------------------------------

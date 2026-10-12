@@ -24,6 +24,7 @@ Background near-black, lines pale chalk-white, quiet details grey, the enemy red
 - Defining detail: at the start he is always tired and depressed. He has bags under his eyes and looks sad.
 - Size on screen: medium to big. The viewer notices he's there, but he isn't huge.
 - He faces the enemy, turned side-on, not the viewer. His tired head droops forward, toward the enemy.
+- At the end of the grind he goes numb: no frown, flat brows, heavy lids (film 1, row 17).
 - No red on his face. Sleeplessness shows through bags, heavy lids and worried brows only. Rejected (film 1): red rims round the eyes, red bags, red veins, a red glow under the eyes.
 - In close-ups he is still a stick figure: an arm is just a thick line, with no hand drawn.
 - Lying on his back seen from above, he rests his hands on his belly. (Arms hanging from one point on his spine looked like a tent.)
@@ -51,7 +52,7 @@ His own writing in the world (the whiteboard) uses it too, so the caption's voic
 
 ## Film 1's things
 
-- **The whiteboard:** dark, with a faint shine, a frame and a marker tray: clearly a board, but as dark as the room. Pale writing; only the crossing-out is red. Rejected: outline only (doesn't read as a board), a real pale whiteboard (too bright).
+- **The whiteboard:** dark, with a faint shine, a frame and a marker tray: clearly a board, but as dark as the room. Pale writing; only the crossing-out is red. From FRIDAY on he cares less: each red slash is more crooked than the last and runs past the word. Rejected: outline only (doesn't read as a board), a real pale whiteboard (too bright).
 - **Phone messages:** a real lock screen seen from above: the time big at the top, a pale rounded banner with a round initial, the sender's name and the message in dark writing. Rejected: a chat bubble, words glowing alone.
 - **The quote reel:** a smug stick-figure man in a suit (tie, lapels), and under him a dark caption box with the words in big bold capitals. Rejected: the words alone, a loud coach.
 - **His empty bottles:** lying on their sides, one on the nightstand by the clock and one on the floor by the bed (from above, a standing bottle is just a circle and reads as a cup).
