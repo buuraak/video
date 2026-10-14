@@ -32,6 +32,7 @@ PEAK_DB = -7.3          # set so the hum matches the other scenes
 
 # The board as he left it in row 10: the huge goals wiped, his four new goals written.
 BOARD = dict(wiped=goals.wiped(goals.DURATION), new_goals=goals.written(goals.DURATION))
+TRAY = ("eraser", "red", "pale")    # the eraser has lain on the tray since row 10
 
 
 def days(crossed=0.0, written=0.0):
@@ -106,7 +107,7 @@ def his_pose(t):
 def shot_wide(canvas, t, frame):
     with wide_camera.view(canvas, t):
         shut = progress(t, *DOOR_SHUT, "out")
-        draw_wall(canvas, frame, days(), door_open=0.85 * (1 - shut), **BOARD)
+        draw_wall(canvas, frame, days(), on_tray=TRAY, door_open=0.85 * (1 - shut), **BOARD)
         hero.draw(canvas, frame, his_pose(t))
 
 
@@ -176,22 +177,29 @@ class BoardArm:
     """His arm at the board close up, from the bottom right (he stands right of the board, between it and the
     door): it takes the red marker, crosses out start day number `n` (0 = MONDAY), puts the marker back, takes
     the pale one and writes the next day under it. He picks each marker up by its cap end and turns it in his
-    hand. hover: when the red marker stops by the day before the stroke (None: no pause, straight into it)."""
+    hand. hover: when the red marker stops by the day before the stroke (None: no pause, straight into it).
+    search: instead of writing (written=None, write=None), the pale marker's tip goes looking for room, stopping
+    at each of these (time, point) in turn before he puts it back."""
 
     def __init__(self, n, crossed, written, arm_in, grab_red, hover, cross, put_red, grab_pale, write, put_pale,
-                 arm_out, lift=0.3):
+                 arm_out, lift=0.3, search=None):
         self.arm_in, self.grab_red, self.cross, self.put_red = arm_in, grab_red, cross, put_red
         self.grab_pale, self.write, self.put_pale, self.arm_out, self.lift = grab_pale, write, put_pale, arm_out, lift
         self.a, self.b = cross_line(CLOSE, n, crossed)
-        self.wx, self.wy, self.ww, self.wpx = day_box(CLOSE, n + 1, written)
-        self.letters = len(written) + 2           # the pen bobs up and down about once a letter
-        start = (self.wx + 0.02 * self.wpx, self.wy - 0.4 * self.wpx)
         red_up, pale_up = lifted("red")[2], lifted("pale")[2]
         keys = [(grab_red + lift, red_up)]
         if hover is not None:
             keys.append((hover, (self.a[0] - 14, self.a[1] - 10), "inout"))
         keys += [(cross[0], self.a, "inout"), (cross[1], self.b, "inout"), (put_red - lift, red_up, "inout")]
         self.red_tip = Track(*keys)                # where the red marker's tip goes while he holds it
+        self.search = None
+        if search is not None:
+            self.search = Track((grab_pale + lift, pale_up), *[(at, point, "inout") for at, point in search],
+                                (put_pale - lift, pale_up, "inout"))
+            return
+        self.wx, self.wy, self.ww, self.wpx = day_box(CLOSE, n + 1, written)
+        self.letters = len(written) + 2           # the pen bobs up and down about once a letter
+        start = (self.wx + 0.02 * self.wpx, self.wy - 0.4 * self.wpx)
         self.pale_to = Track((grab_pale + lift, pale_up), (write[0], start, "inout"))
         self.pale_back = Track((write[1], (self.wx + self.ww, start[1])), (put_pale - lift, pale_up, "inout"))
         self.start = start
@@ -201,9 +209,11 @@ class BoardArm:
 
     def writing(self, t):
         """0..1: how much of the new day is written."""
-        return progress(t, *self.write, "linear")
+        return 0.0 if self.write is None else progress(t, *self.write, "linear")
 
     def pale_tip(self, t):
+        if self.search is not None:
+            return self.search(t)
         if t < self.write[0]:
             return self.pale_to(t)
         if t < self.write[1]:          # writing: along the word, the pen bobbing up and down with the letters
@@ -246,7 +256,8 @@ class BoardArm:
         return hand, colour, tip, angle
 
     def on_tray(self, t):
-        return [c for c in ("red", "pale") if c != self.held(t)]
+        """What lies on the tray: the eraser (there since row 10) and whichever marker he isn't holding."""
+        return ["eraser"] + [c for c in ("red", "pale") if c != self.held(t)]
 
     def draw(self, canvas, frame, t):
         """The marker in his hand and his arm (drawn over the board)."""

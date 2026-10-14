@@ -30,6 +30,7 @@ DURATION = 32.0
 PEAK_DB = -5.1         # set so the hum matches the other scenes (the door latch is the loudest moment)
 NEW = ["Run 2x a week", "Go to the gym", "Stay sober", "Wake up at 6:00"]
 DAYS = [("MONDAY", 1.0, 1.0), ("TUESDAY", 1.0, 0.0)]
+TRAY = ("eraser", "red", "pale")    # what lies on the tray in the wide shots (the eraser from here on)
 DETERMINED = Face(eyes=0.92, brows=-0.6, mouth="frown", mouth_size=0.0, bags=True)
 
 CLOSE_UP = 5.0         # cut to the board
@@ -143,7 +144,7 @@ wide_camera = Camera(x=Track((0, 930), (CLOSE_UP, 955, "linear")), zoom=Track((0
 
 def shot_walk_in(canvas, t, frame):
     with wide_camera.view(canvas, t):
-        draw_wall(canvas, frame, DAYS)
+        draw_wall(canvas, frame, DAYS, on_tray=TRAY)
         face = DETERMINED.but(eyes=0.92 * blink(t, "hero.goals", every=2.8))
         look = progress(t, *LOOK, "inout")
         breath = 2.5 * math.sin(2 * math.pi * t / 3.2) * (1 - walk_in.moving(t))
@@ -349,7 +350,7 @@ def his_face(t):
 
 def shot_smile(canvas, t, frame):
     with smile_camera.view(canvas, t):
-        draw_wall(canvas, frame, DAYS, wiped=wiped(DURATION), new_goals=written(DURATION))
+        draw_wall(canvas, frame, DAYS, on_tray=TRAY, wiped=wiped(DURATION), new_goals=written(DURATION))
         breath = 2.0 * math.sin(2 * math.pi * (t - SMILE_SHOT) / 3.0) * (1 - step_back.moving(t))
         pose = step_back.pose(t, his_face(t), look_up=1.0)
         hero.draw(canvas, frame, pose.but(y=pose.y + breath))
@@ -370,7 +371,8 @@ door_camera = Camera(x=Track((DOOR_SHOT, 960), (DURATION, 1020, "linear")), zoom
 def shot_door(canvas, t, frame):
     with door_camera.view(canvas, t):
         opening = progress(t, *PUSH, "inout")
-        draw_wall(canvas, frame, DAYS, wiped=wiped(DURATION), new_goals=written(DURATION), door_open=0.85 * opening)
+        draw_wall(canvas, frame, DAYS, on_tray=TRAY, wiped=wiped(DURATION), new_goals=written(DURATION),
+                  door_open=0.85 * opening)
         face = his_face(t).but(mouth_size=0.45)
         into = progress(t, *INTO, "inout")
         pose = walk_out.pose(t, face)

@@ -405,6 +405,23 @@ def eleven_sound(prompt, seconds, name, influence=0.5):
     return data.astype(float) / 32768.0
 
 
+MUSIC_FOLDER = Path(__file__).resolve().parent.parent / "audio" / "music"
+
+
+def eleven_music(prompt, seconds, name):
+    """A piece of music made by ElevenLabs from a description ("warm, hopeful piano and soft strings, building
+    slowly, no drums"), as a mono sound, `seconds` long (10 to 300). Made once and saved in audio/music/, like
+    eleven_speech()."""
+    from .rng import seed as stable
+    path = MUSIC_FOLDER / f"{name}_{stable(prompt, seconds):016x}.wav"
+    if not path.exists():
+        mp3 = _elevenlabs("/music?output_format=mp3_44100_128",
+                          {"prompt": prompt, "music_length_ms": int(seconds * 1000)})
+        _save_mp3(mp3, path)
+    rate_read, data = wavfile.read(path)
+    return data.astype(float) / 32768.0
+
+
 def _save_mp3(mp3, path):
     """Save MP3 bytes from ElevenLabs as a mono WAV at our sample rate."""
     import subprocess

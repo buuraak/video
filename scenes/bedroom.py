@@ -231,15 +231,19 @@ def draw_pizza_box(ink, middle, angle, key="pizza", size=136):
     draw_slice(ink, turned([(x + 24, y - 6)], middle, angle)[0], angle + 150, 62, key + ".slice")
 
 
-def draw_mess(ink, items):
-    """The mess on the floor: any of "clothes", "cups" and "pizza"."""
+def draw_mess(ink, items, gone=()):
+    """The mess on the floor: any of "clothes", "cups" and "pizza". gone: single pieces already cleared away
+    ("jeans", "tshirt", "cup0".."cup2", "pizza")."""
     if "clothes" in items:
-        draw_jeans(ink, *JEANS)
-        draw_tshirt(ink, *TSHIRT)
+        if "jeans" not in gone:
+            draw_jeans(ink, *JEANS)
+        if "tshirt" not in gone:
+            draw_tshirt(ink, *TSHIRT)
     if "cups" in items:
         for i, (middle, angle) in enumerate(CUPS):
-            draw_cup(ink, middle, angle, f"cup{i}")
-    if "pizza" in items:
+            if f"cup{i}" not in gone:
+                draw_cup(ink, middle, angle, f"cup{i}")
+    if "pizza" in items and "pizza" not in gone:
         draw_pizza_box(ink, *PIZZA)
 
 
@@ -259,9 +263,10 @@ def draw_phone_on_table(ink):
     ink.stroke(screen, "phone.screen", closed=True, width=1.8)
 
 
-def draw_nightstand(ink, canvas, frame, time="5:59", phone=True):
+def draw_nightstand(ink, canvas, frame, time="5:59", phone=True, bottles=(0, 1), on=1.0):
     """The nightstand: the alarm clock showing `time`, the phone on its charger, and his empty bottles
-    (one on the nightstand, one on the floor beside it).
+    (one on the nightstand, one on the floor beside it; `bottles` lists which are still there).
+    on: the clock's numbers, 0 = dark, 1 = lit (they blink while the alarm rings).
 
     phone=False: the phone has been taken, and the unplugged charger cable lies loose.
     phone="plugged": it's on the charger, but the scene draws the phone itself (lit up, turned over).
@@ -272,7 +277,7 @@ def draw_nightstand(ink, canvas, frame, time="5:59", phone=True):
     box(ink, rounded_rect(650, 230, 700, 246, 5), "clock.button", width=2.4)
     box(ink, rounded_rect(*CLOCK_FRONT, 8), "clock.front", width=3.2)
     box(ink, rounded_rect(608, 268, 718, 302, 5), "clock.window", width=2.0)
-    clock_numbers(canvas, frame, time, (663, 285), 24, "clock.small")
+    clock_numbers(canvas, frame, time, (663, 285), 24, "clock.small", on=on)
     plugged = isinstance(phone, str) and phone == "plugged"
     if phone and not plugged:
         draw_phone_on_table(ink)
@@ -284,7 +289,8 @@ def draw_nightstand(ink, canvas, frame, time="5:59", phone=True):
     ink.stroke(cable, "cable", width=2.6, taper=0.0)
     box(ink, rounded_rect(507, WALL, 531, 216, 3), "plug", width=2.4)
     for i, (middle, angle, length, r) in enumerate(BOTTLES):      # his empty bottles
-        draw_bottle(ink, middle, angle, f"bottle{i}", length, r)
+        if i in bottles:
+            draw_bottle(ink, middle, angle, f"bottle{i}", length, r)
 
 
 def draw_bed(ink):
@@ -300,10 +306,11 @@ def _faded(alpha):
     return (*ROOM[:3], int(ROOM[3] * alpha))
 
 
-def draw_blanket(ink, b, thrown=0.0):
+def draw_blanket(ink, b, thrown=0.0, made=False):
     """The blanket from his chest down. b is the breath: his chest rises under it.
 
     thrown: 0 = covering him, 1 = thrown back toward the nightstand, half off the bed.
+    made: nobody under it: the bed is made, flat and smooth (no legs, no feet).
     """
     top = BLANKET_TOP - 6 * b
     left, right, bottom = BED[0] - 14, BED[2] + 14, BED[3] + 14
@@ -326,7 +333,7 @@ def draw_blanket(ink, b, thrown=0.0):
         ink.stroke(smooth([(left + 6, top + 50), (HERO_X - 110, top + 46 - 4 * b), (HERO_X + 100, top + 47 - 4 * b),
                            (right - 6, top + 52)]), "blanket.fold", width=2.6, **kw)
         # underneath: a soft ridge along each leg, and the bumps of his feet
-        for side in (-1, 1):
+        for side in (() if made else (-1, 1)):
             ridge = smooth([(HERO_X + side * 14, 640), (HERO_X + side * 30, 730), (HERO_X + side * 52, 812)])
             ink.stroke(ridge, f"blanket.leg{side}", width=2.0, taper=0.8, **kw)
             foot = HERO_X + side * 50

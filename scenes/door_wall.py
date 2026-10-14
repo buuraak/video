@@ -6,14 +6,14 @@ measurements (u across, v down, both 0..1), so the same board looks the same at 
 
 The board: NEW ME and the huge goals on the left; on the right, START: and a column of days that
 grows down, one for each "I'll start tomorrow". A day is written in pale marker and crossed out
-in red when it fails.
+in red when it fails. When the column is full, the days run on wherever there's room (MORE_DAYS).
 """
 import math
 
 import skia
 
 from scenes.bedroom import ROOM, box, rounded_rect
-from toolkit import BG, INK, RED, Character, Ink, boil, to_color
+from toolkit import BG, GREEN, INK, RED, Character, Ink, boil, to_color
 from toolkit.rng import rng
 from toolkit.text import typeface
 
@@ -25,7 +25,8 @@ MARKER_INK = (226, 223, 214)     # the pale marker, a touch softer than the line
 TITLE = (0.05, 0.16, 0.12)       # "NEW ME": u, v of its baseline, size as a share of the board's height
 GOAL = (0.05, 0.30, 0.115, 0.08)  # the first goal's u, v; the step down to the next; size
 DAYS = (0.68, 0.16, 0.30, 0.115, 0.08)  # "START:" u, v; the first day's v; the step down; size
-TRAY_MARKERS = {"red": 0.70, "pale": 0.84}   # where the markers lie on the tray (u)
+TRAY_MARKERS = {"red": 0.70, "pale": 0.84, "green": 0.56}   # where the markers lie on the tray (u); the green one
+                                                            # only at the very end (film 1, row 31)
 TRAY_ERASER = 0.22                           # where the eraser lies on the tray (u), when the board has one
 
 
@@ -48,19 +49,56 @@ def word_box(rect, text, u, v, size):
     return x, y, _font(px).measureText(text), px
 
 
+# When the START column is full (after SATURDAY, the 6th day), the days run on wherever there's room: down the
+# middle of the board, under his goals and then over them, smaller and more crooked, until they nearly bury his
+# goals (film 1, row 18; the user's pick, sheets/full_board_options.png option 3). In the order he wrote them,
+# as (u, v, size, tilt in degrees).
+MORE_DAYS = ([(0.405, 0.16 + i * 0.105, 0.068, tilt)                        # a second column down the middle
+              for i, tilt in enumerate((3.8, -4.9, -0.7, 3.1, 1.8, -5.0, -2.7, -3.2))]
+             + [(0.05, 0.775, 0.058, -3.2), (0.22, 0.775, 0.058, 4.8),      # under his goals
+                (0.05, 0.895, 0.052, 3.2), (0.25, 0.895, 0.052, -6.4)]
+             + [(0.06, 0.36, 0.06, -6), (0.2, 0.37, 0.055, 5), (0.04, 0.48, 0.06, 7),   # over his goals
+                (0.21, 0.47, 0.055, -5), (0.08, 0.6, 0.06, -3), (0.2, 0.6, 0.05, 8),
+                (0.04, 0.7, 0.055, 4), (0.22, 0.69, 0.055, -7),
+                (0.29, 0.13, 0.042, -5),                                     # squeezed in beside NEW ME...
+                (0.66, 0.955, 0.05, 3), (0.84, 0.955, 0.04, -4)])            # ...and under the column: the last
+WEEK = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"]
+
+
+def day_names(count):
+    """The first `count` start days, from MONDAY on, week after week."""
+    return [WEEK[i % 7] for i in range(count)]
+
+
+def day_spot(n):
+    """Where the n-th start day (0 = the first) is written: (u, v, size, tilt)."""
+    if n < 6:
+        return DAYS[0], DAYS[2] + n * DAYS[3], DAYS[4], 0.0
+    return MORE_DAYS[n - 6]
+
+
 def day_box(rect, n, text):
-    """Where the n-th start day (0 = the first) sits."""
-    u, _, v, step, size = DAYS
-    return word_box(rect, text, u, v + n * step, size)
+    """Where the n-th start day sits, before its tilt: (left x, baseline y, width, size in pixels)."""
+    u, v, size, _ = day_spot(n)
+    return word_box(rect, text, u, v, size)
 
 
-def _write(canvas, frame, rect, text, u, v, size, shown=1.0, key=""):
-    """Marker writing; shown 0..1 reveals it left to right, as the pen writes it."""
+def _turned(point, origin, degrees):
+    c, s = math.cos(math.radians(degrees)), math.sin(math.radians(degrees))
+    dx, dy = point[0] - origin[0], point[1] - origin[1]
+    return (origin[0] + dx * c - dy * s, origin[1] + dx * s + dy * c)
+
+
+def _write(canvas, frame, rect, text, u, v, size, shown=1.0, key="", tilt=0.0):
+    """Marker writing; shown 0..1 reveals it left to right, as the pen writes it. tilt turns it about the start
+    of its baseline."""
     if shown <= 0:
         return
     x, y, w, px = word_box(rect, text, u, v, size)
     jitter = rng("board.word", key, text, boil(frame)).uniform(-1, 1, 2) * px * 0.012   # it boils with the lines
     canvas.save()
+    if tilt:
+        canvas.rotate(tilt, x, y)
     if shown < 1:
         canvas.clipRect(skia.Rect(x - px, y - 2 * px, x + w * shown, y + px))
     canvas.drawString(text, x + jitter[0], y + jitter[1], _font(px),
@@ -74,20 +112,33 @@ def careless(n):
     return 1 - 0.5 ** max(0, n - 3)
 
 
-def cross_line(rect, n, text):
-    """The red line through the n-th day: from just before it to just after, rising slightly (a careless
-    slash rises more steeply and runs on past the word)."""
+def _cross_local(rect, n, text):
+    """The red line through the n-th day, before the day's tilt."""
     x, y, w, px = day_box(rect, n, text)
     s = careless(n)
     return (x - (0.15 + 0.2 * s) * px, y - (0.3 - 0.4 * s) * px), (x + w + (0.15 + s) * px, y - (0.4 + 0.9 * s) * px)
 
 
+def cross_line(rect, n, text):
+    """The red line through the n-th day: from just before it to just after, rising slightly (a careless
+    slash rises more steeply and runs on past the word), turned with the day if it's written crooked."""
+    a, b = _cross_local(rect, n, text)
+    tilt = day_spot(n)[3]
+    if not tilt:
+        return a, b
+    origin = day_box(rect, n, text)[:2]
+    return _turned(a, origin, tilt), _turned(b, origin, tilt)
+
+
 def _cross(canvas, frame, rect, n, text, crossed, key):
     if crossed <= 0:
         return
-    a, b = cross_line(rect, n, text)
-    px = day_box(rect, n, text)[3]
+    a, b = _cross_local(rect, n, text)
+    x, y, _, px = day_box(rect, n, text)
+    tilt = day_spot(n)[3]
     canvas.save()
+    if tilt:
+        canvas.rotate(tilt, x, y)
     if crossed < 1:
         top, bottom = min(a[1], b[1]) - px, max(a[1], b[1]) + px
         canvas.clipRect(skia.Rect(a[0] - px, top, a[0] + (b[0] - a[0]) * crossed, bottom))
@@ -95,11 +146,141 @@ def _cross(canvas, frame, rect, n, text, crossed, key):
     canvas.restore()
 
 
+# -- after the turn: TODAY and the five easy things ------------------------------------------------
+# Written on the clean board (film 1, row 22): TODAY where NEW ME was, and five easy things, each with an empty
+# box before it. In board measurements.
+
+FIVE = ["Get up when the alarm rings", "Clean your room", "Go for a walk", "Write 3 lines", "Text one person"]
+TODAY = (0.05, 0.16, 0.12)                # TODAY: u, v of its baseline, size (where NEW ME was)
+FIVE_TEXT = (0.135, 0.33, 0.13, 0.085)    # the first thing's u, v; the step down to the next; size
+BOX_U, BOX_SIDE = 0.055, 0.064            # each box's left edge (u), and its side as a share of the board's height
+
+
+def five_text(rect, i):
+    """Where the i-th easy thing's words sit: (left x, baseline y, width, size in pixels)."""
+    u, v, step, size = FIVE_TEXT
+    return word_box(rect, FIVE[i], u, v + i * step, size)
+
+
+def five_box(rect, i):
+    """The i-th empty box, (x0, y0, x1, y1) in pixels: its bottom on the line's baseline."""
+    side = BOX_SIDE * (rect[3] - rect[1])
+    x = at(rect, BOX_U, 0)[0]
+    y = five_text(rect, i)[1]
+    return (x, y - side, x + side, y)
+
+
+def box_point(rect, i, f):
+    """The point f (0..1) of the way round the i-th box, drawn clockwise from its top left corner."""
+    x0, y0, x1, y1 = five_box(rect, i)
+    corners = [(x0, y0), (x1, y0), (x1, y1), (x0, y1), (x0, y0)]
+    side = min(int(f * 4), 3)
+    u = f * 4 - side
+    (ax, ay), (bx, by) = corners[side], corners[side + 1]
+    return (ax + (bx - ax) * u, ay + (by - ay) * u)
+
+
+def _draw_box(canvas, frame, rect, i, drawn, key):
+    """The i-th box, drawn round clockwise from its top left corner as far as `drawn` (0..1)."""
+    if drawn <= 0:
+        return
+    x0, y0, x1, y1 = five_box(rect, i)
+    px = FIVE_TEXT[3] * (rect[3] - rect[1])
+    pen = Ink(canvas, frame, color=MARKER_INK, width=0.1 * px, prefix=f"{key}.box{i}")
+    corners = [(x0, y0), (x1, y0), (x1, y1), (x0, y1), (x0, y0)]
+    for k in range(4):
+        shown = min(max(drawn * 4 - k, 0.0), 1.0)
+        if shown <= 0:
+            break
+        (ax, ay), (bx, by) = corners[k], corners[k + 1]
+        canvas.save()
+        if shown < 1:       # the side being drawn: the whole side, cut off where the pen has got to
+            ex, ey = ax + (bx - ax) * shown, ay + (by - ay) * shown
+            pad = 0.1 * px
+            canvas.clipRect(skia.Rect(min(ax, ex) - pad, min(ay, ey) - pad, max(ax, ex) + pad, max(ay, ey) + pad))
+        pen.line((ax, ay), (bx, by), f"side{k}", taper=0.0)
+        canvas.restore()
+
+
+TICK_SHORT = 0.3      # the share of a tick that is its short first stroke, down into the box
+
+
+def _tick_corners(rect, i):
+    """A tick in the i-th box: down from its left into the box, then up past its top right corner."""
+    x0, y0, x1, y1 = five_box(rect, i)
+    s = x1 - x0
+    return (x0 + 0.16 * s, y0 + 0.5 * s), (x0 + 0.42 * s, y0 + 0.86 * s), (x0 + 1.08 * s, y0 - 0.3 * s)
+
+
+def tick_point(rect, i, f):
+    """The point f (0..1) of the way along the tick in the i-th box, as the pen draws it."""
+    a, b, c = _tick_corners(rect, i)
+    if f < TICK_SHORT:
+        return lerp_point(a, b, f / TICK_SHORT)
+    return lerp_point(b, c, (f - TICK_SHORT) / (1 - TICK_SHORT))
+
+
+def lerp_point(a, b, u):
+    return (a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u)
+
+
+def _draw_tick(canvas, frame, rect, i, drawn, colour, key):
+    if drawn <= 0:
+        return
+    a, b, c = _tick_corners(rect, i)
+    px = FIVE_TEXT[3] * (rect[3] - rect[1])
+    pen = Ink(canvas, frame, color=colour, width=0.13 * px, prefix=f"{key}.tick{i}")
+    for k, (p, q, share) in enumerate(((a, b, (0.0, TICK_SHORT)), (b, c, (TICK_SHORT, 1.0)))):
+        shown = min(max((drawn - share[0]) / (share[1] - share[0]), 0.0), 1.0)
+        if shown <= 0:
+            break
+        canvas.save()
+        if shown < 1:       # the stroke being drawn: the whole stroke, cut off where the pen has got to
+            e = lerp_point(p, q, shown)
+            pad = 0.15 * px
+            canvas.clipRect(skia.Rect(min(p[0], e[0]) - pad, min(p[1], e[1]) - pad, max(p[0], e[0]) + pad,
+                                      max(p[1], e[1]) + pad))
+        pen.line(p, q, f"stroke{k}", taper=0.3)
+        canvas.restore()
+
+
+def draw_today(canvas, frame, rect, today=1.0, boxes=(), lines=(), ticks=(), tick_colour=MARKER_INK,
+               key="board.today"):
+    """TODAY and the five easy things, written over the clean board (draw it with draw_board(..., cleaned=...)
+    first). today: 0..1, how much of TODAY is written. boxes, lines: for each thing in turn, 0..1, how much of its
+    box and of its words are written (things not listed aren't there yet; leave both out for all five written).
+    ticks: for each thing in turn, 0..1, how much of its tick is drawn, in tick_colour."""
+    if not boxes and not lines:
+        boxes = lines = [1.0] * len(FIVE)
+    _write(canvas, frame, rect, "TODAY", *TODAY, today, key=key)
+    for i, drawn in enumerate(boxes):
+        _draw_box(canvas, frame, rect, i, drawn, key)
+    u, v, step, size = FIVE_TEXT
+    for i, shown in enumerate(lines):
+        _write(canvas, frame, rect, FIVE[i], u, v + i * step, size, shown, key=f"{key}.{i}")
+    for i, drawn in enumerate(ticks):
+        _draw_tick(canvas, frame, rect, i, drawn, tick_colour, key)
+
+
 # -- the board itself --------------------------------------------------------------------
 
 
+def _smear(canvas, rect, areas):
+    """A wiped whiteboard keeps a faint grey smear (drawn as one layer, so overlaps don't add up)."""
+    if not areas:
+        return
+    x0, y0, x1, y1 = rect
+    canvas.saveLayerAlpha(None, 7)
+    smear = skia.Paint(AntiAlias=True, Color=skia.ColorWHITE,
+                       MaskFilter=skia.MaskFilter.MakeBlur(skia.kNormal_BlurStyle, 0.02 * (y1 - y0)))
+    for u0, v0, u1, v1 in areas:
+        a, b = at(rect, u0, v0 + 0.01), at(rect, u1, v1 - 0.01)
+        canvas.drawRoundRect(skia.Rect(a[0], a[1], b[0], b[1]), 0.03 * (y1 - y0), 0.03 * (y1 - y0), smear)
+    canvas.restore()
+
+
 def draw_board(canvas, frame, rect, days, key="board", line_width=4.0, on_tray=("red", "pale"), goals=None,
-               wiped=(), new_goals=()):
+               wiped=(), new_goals=(), cleaned=()):
     """The whiteboard in `rect` (x0, y0, x1, y1), with its frame, tray and writing.
 
     days: the start days on it, in order, as (name, written 0..1, crossed out 0..1).
@@ -107,7 +288,8 @@ def draw_board(canvas, frame, rect, days, key="board", line_width=4.0, on_tray=(
     with draw_marker or draw_eraser).
     goals: the goal list (GOALS unless given). wiped: areas the eraser has wiped, as (u0, v0, u1, v1)
     in board measurements; the writing there is gone, leaving a faint smear. new_goals: goals written
-    over the wiped ones, as (text, written 0..1).
+    over the wiped ones, as (text, written 0..1). cleaned: areas wiped later, after everything was written
+    (film 1, row 21): everything there is gone, NEW ME, the days and the red too.
     """
     x0, y0, x1, y1 = rect
     ink = Ink(canvas, frame, color=ROOM, width=line_width, prefix=key)
@@ -120,6 +302,10 @@ def draw_board(canvas, frame, rect, days, key="board", line_width=4.0, on_tray=(
     canvas.drawRect(skia.Rect(x0, y0, x1, y1), skia.Paint(Shader=sheen))
     ink.stroke(corners, "frame", closed=True)
 
+    canvas.save()
+    for u0, v0, u1, v1 in cleaned:
+        a, b = at(rect, u0, v0), at(rect, u1, v1)
+        canvas.clipRect(skia.Rect(a[0], a[1], b[0], b[1]), skia.ClipOp.kDifference)
     _write(canvas, frame, rect, "NEW ME", *TITLE, key=key)
     u, v, step, size = GOAL
     canvas.save()
@@ -129,20 +315,16 @@ def draw_board(canvas, frame, rect, days, key="board", line_width=4.0, on_tray=(
     for i, goal in enumerate(GOALS if goals is None else goals):
         _write(canvas, frame, rect, "- " + goal, u, v + i * step, size, key=key)
     canvas.restore()
-    if wiped:      # a wiped whiteboard keeps a faint grey smear (drawn as one layer, so overlaps don't add up)
-        canvas.saveLayerAlpha(None, 7)
-        smear = skia.Paint(AntiAlias=True, Color=skia.ColorWHITE,
-                           MaskFilter=skia.MaskFilter.MakeBlur(skia.kNormal_BlurStyle, 0.02 * (y1 - y0)))
-        for u0, v0, u1, v1 in wiped:
-            a, b = at(rect, u0, v0 + 0.01), at(rect, u1, v1 - 0.01)
-            canvas.drawRoundRect(skia.Rect(a[0], a[1], b[0], b[1]), 0.03 * (y1 - y0), 0.03 * (y1 - y0), smear)
-        canvas.restore()
+    _smear(canvas, rect, wiped)
     for i, (goal, written) in enumerate(new_goals):
         _write(canvas, frame, rect, "- " + goal, u, v + i * step, size, written, key=key + ".new")
     _write(canvas, frame, rect, "START:", DAYS[0], DAYS[1], DAYS[4], key=key)
     for n, (name, written, crossed) in enumerate(days):
-        _write(canvas, frame, rect, name, DAYS[0], DAYS[2] + n * DAYS[3], DAYS[4], written, key=key)
+        u, v, size, tilt = day_spot(n)
+        _write(canvas, frame, rect, name, u, v, size, written, key=f"{key}.{n}" if n >= 6 else key, tilt=tilt)
         _cross(canvas, frame, rect, n, name, crossed, key)
+    canvas.restore()
+    _smear(canvas, rect, cleaned)
 
     # the tray along the bottom, and the markers lying on it
     h = y1 - y0
@@ -194,7 +376,7 @@ def draw_marker(canvas, frame, tip, angle, board_h, colour, key="board"):
     """
     length, thick = marker_size(board_h)
     ink = Ink(canvas, frame, color=ROOM, width=max(1.2, 0.006 * board_h), prefix=f"{key}.marker.{colour}")
-    shade = RED if colour == "red" else MARKER_INK
+    shade = {"red": RED, "green": GREEN}.get(colour, MARKER_INK)
     canvas.save()
     canvas.translate(*tip)
     canvas.rotate(angle)

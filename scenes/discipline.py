@@ -2,7 +2,7 @@
 
 It fills only when he actually does something he set out to do, one equal step per action, sliding up
 smoothly. It drains to empty with a red flash when he quits ("I'll start tomorrow"); when it's already
-empty, quitting only makes it flicker red. It turns green only when it's full, at the end. The rules,
+empty, quitting only makes it flicker red. It turns green only as its last step fills, at the end, with a warm chord. The rules,
 scene by scene, are in stories/tomorrow.md; the look was picked from sheets/discipline_options.png.
 
 Each scene says where its bar starts and what happens to it, and draws it in overlay(), after the film
@@ -11,6 +11,7 @@ finish (the bar sits in the black bar, so it isn't moved by the camera):
     bar = Discipline(start=1, fills=[3.35])       # 1 step full when the scene starts, +1 at 3.35 s
     bar = Discipline(flickers=[6.0])               # empty, a red flicker at 6 s
     bar = Discipline(start=2, drains=[5.0])        # drains to empty with a red flash at 5 s
+    bar = Discipline(start=18, shakes=[(9.6, 12.6)])  # trembling (with a low rattle) from 9.6 s to 12.6 s
 
     def overlay(canvas, t, frame):
         bar.draw(canvas, t, frame)
@@ -22,8 +23,9 @@ flickers). Add them to a scene's soundtrack with `bar.add_sounds(mix)`. Picked f
 import numpy as np
 import skia
 
-from toolkit import BAR, INK, RED, Ink, progress, to_color
+from toolkit import BAR, GREEN, INK, RED, Ink, progress, to_color
 from toolkit import sound as sk
+from toolkit.rng import noise
 from toolkit.text import font
 
 STEPS = 20             # equal steps from empty to full
@@ -37,6 +39,7 @@ PAD = 5                # between the outline and the fill
 MIDDLE = BAR / 2       # the middle of the top black bar
 OUTLINE = 3.6          # pen width of the outline
 SOUND_DB = -12         # how loud its sounds are in a scene's mix: clearly above the scene, well below the alarm
+SHAKE = 7.0            # pixels: how far it trembles at most
 
 # A flicker: red on and off a few times, like a failing light. (seconds after it starts, red or not)
 FLICKER = [(0.0, 1), (0.09, 0), (0.16, 1), (0.30, 0), (0.37, 1), (0.55, 0)]
@@ -52,10 +55,12 @@ class Discipline:
     start: steps full when the scene starts. fills: times he does something (+1 step each).
     drains: times he quits with something in the bar (it drains to empty, flashing red).
     flickers: times he quits with the bar already empty (a red flicker, nothing to drain).
+    shakes: (start, end) times it trembles, as the old pull tugs at him (film 1, rows 27-28).
     """
 
-    def __init__(self, start=0, fills=(), drains=(), flickers=()):
+    def __init__(self, start=0, fills=(), drains=(), flickers=(), shakes=()):
         self.start = start
+        self.shakes = list(shakes)
         self.events = sorted([(at, "fill") for at in fills] + [(at, "drain") for at in drains])
         self.drains = sorted(drains)
         self.flickers = sorted(flickers)
@@ -82,15 +87,43 @@ class Discipline:
                     out = max(out, on)
         return out
 
+    def shaking(self, t):
+        """0..1: how hard it trembles at time t (easing in and out of each shake)."""
+        out = 0.0
+        for a, b in self.shakes:
+            out = max(out, progress(t, a, a + 0.4, "inout") * (1 - progress(t, b - 0.3, b, "inout")))
+        return out
+
     def draw(self, canvas, t, frame):
+        s = self.shaking(t)
+        if s <= 0:
+            draw_bar(canvas, frame, self.level(t), red=self.red(t))
+            return
+        canvas.save()
+        canvas.translate(SHAKE * s * noise(t * 22, "discipline.shake", "x"), 0.6 * SHAKE * s * noise(t * 22, "discipline.shake", "y"))
         draw_bar(canvas, frame, self.level(t), red=self.red(t))
+        canvas.restore()
+
+    def full_at(self):
+        """When the bar becomes full (the fill that reaches the last step), or None."""
+        value = self.start
+        for at, kind in self.events:
+            value = value + 1 if kind == "fill" else 0
+            if value >= STEPS:
+                return at
+        return None
 
     def add_sounds(self, mix):
         """Put the bar's sounds on a scene's soundtrack, right where it fills, drains or flickers."""
         for at, kind in self.events:
             mix.add(fill_sound() if kind == "fill" else drain_sound(), at=at, gain_db=SOUND_DB)
+        full = self.full_at()
+        if full is not None:            # the last step: a warm chord rings out as it turns green
+            mix.add(full_sound(), at=full + FILL - 0.05, gain_db=SOUND_DB - 2, reverb=0.25)
         for at in self.flickers:
             mix.add(drain_sound(), at=at, gain_db=SOUND_DB)
+        for a, b in self.shakes:
+            mix.add(rattle_sound(b - a), at=a, gain_db=SOUND_DB - 6)
 
 
 def layout():
@@ -104,7 +137,8 @@ def draw_bar(canvas, frame, level, *, red=0.0):
     """The bar with `level` steps full (out of STEPS). red: 0..1, how strongly it flashes red."""
     lx, bx = layout()
     top, bottom = MIDDLE - HEIGHT / 2, MIDDLE + HEIGHT / 2
-    colour = _mix(INK, RED, red)
+    green = progress(level, STEPS - 0.4, STEPS, "inout")     # it turns green only as the last step fills
+    colour = _mix(_mix(INK, GREEN, green), RED, red)
     canvas.drawString(LABEL, lx, MIDDLE + LABEL_SIZE * 0.36, font(LABEL_SIZE),
                       skia.Paint(AntiAlias=True, Color=to_color(colour)))
     ink = Ink(canvas, frame, prefix="discipline")
@@ -160,4 +194,23 @@ def drain_sound():
     knock = sk.thud(0.6, key="bar.down")
     start = int((DRAIN - 0.05) * sk.SR)
     out[start:] += knock[:len(out) - start] * 0.6
+    return sk.normalize(out, 0.9)
+
+
+def rattle_sound(seconds):
+    """A low, uneasy rattle while the bar trembles: a dull buzz shuddering, easing in and out."""
+    t = sk.times(seconds)
+    shudder = 0.6 + 0.4 * np.sin(2 * np.pi * 17 * t) * np.sin(2 * np.pi * 0.7 * t + 1.0)
+    buzz = sk.lowpass(sum(np.sin(2 * np.pi * 70 * k * t) / k for k in (1, 2, 3)) + 0.4 * sk.noise(len(t), "rattle"), 400)
+    env = np.clip(t / 0.4, 0, 1) * np.clip((seconds - t) / 0.3, 0, 1)
+    return sk.normalize(buzz * shudder * env, 0.9)
+
+
+def full_sound():
+    """The bar full at last: a warm major chord of soft glass pings, ringing out."""
+    out = np.zeros(int(2.4 * sk.SR))
+    for k, freq in enumerate((523.25, 659.25, 783.99, 1046.5)):      # C, E, G, C
+        ping = _bell(freq, length=2.2, bright=0.4)
+        start = int(0.05 * k * sk.SR)
+        out[start:start + len(ping)] += ping * (0.9 - 0.12 * k)
     return sk.normalize(out, 0.9)
